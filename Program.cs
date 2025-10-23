@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 
 #region Config
 // Carrega a connection string do appsettings.json
@@ -8,14 +9,26 @@ var config = new ConfigurationBuilder()
     .AddEnvironmentVariables()
     .Build();
 
-string connString = config.GetConnectionString("SqlServerConnection")
-    ?? throw new InvalidOperationException("ConnectionStrings:SqlServerConnection não encontrada.");
+string connString = config.GetConnectionString("MySqlConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:MySqlConnection não encontrada.");
 #endregion
 
 var logger = new FileLogger("log.txt");
 
 try
 {
+    
+    var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
+    optionsBuilder.UseMySql(connString, ServerVersion.AutoDetect(connString));
+
+    using (var efContext = new AppDbContext(optionsBuilder.Options))
+    {
+        await logger.LogAsync("Iniciando aplicação e garantindo o esquema EF Core.");
+        
+        efContext.Database.EnsureCreated();
+        await logger.LogAsync("Esquema EF Core garantido (EnsureCreated).");
+    }
+
     var alunoRepo = new AlunoRepository(connString);
     await logger.LogAsync("Iniciando aplicação e garantindo o esquema.");
     alunoRepo.GarantirEsquema(); // DDL: cria a tabela se não existir

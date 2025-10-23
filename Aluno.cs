@@ -28,6 +28,9 @@ public class Aluno
     /// </summary>
     public DateTime DataNascimento { get; set; }
 
+    // Navigation
+    public List<Matricula> Matriculas { get; set; } = new();
+
     /// <summary>
     /// Inicializa uma nova instância da classe <see cref="Aluno"/>.
     /// </summary>
@@ -44,4 +47,7 @@ public class Aluno
         Email = email;
         DataNascimento = dataNascimento;
     }
+
+    
+    public Aluno() { }
 }
