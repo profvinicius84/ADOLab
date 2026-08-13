@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Configuration;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace ADOLab;
 
@@ -14,9 +14,11 @@ class Program
             .AddEnvironmentVariables()
             .Build();
 
-        string connString = config.GetConnectionString("SqlServerConnection")
-            ?? throw new InvalidOperationException("ConnectionStrings:SqlServerConnection não encontrada.");
+        string connString = config.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection não encontrada.");
         #endregion
+
+        if (args.Contains("smoke")) { SmokeTest.Run(connString); return; }
 
         var logger = new FileLogger("log.txt");
 
@@ -127,10 +129,10 @@ class Program
                 }
             }
         }
-        catch (SqlException ex)
+        catch (PostgresException ex)
         {
-            Console.WriteLine($"[ERRO SQL] {ex.Number} - {ex.Message}");
-            await logger.LogErrorAsync($"Erro SQL {ex.Number}: {ex.Message}");
+            Console.WriteLine($"[ERRO SQL] {ex.SqlState} - {ex.Message}");
+            await logger.LogErrorAsync($"Erro SQL {ex.SqlState}: {ex.Message}");
         }
         catch (Exception ex)
         {

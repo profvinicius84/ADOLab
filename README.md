@@ -28,12 +28,18 @@ ADOLab/
 
 - .NET 8 (biblioteca e console)
 - ASP.NET Core MVC (.NET 10)
-- ADO.NET
-- SQL Server
+- ADO.NET (Npgsql)
+- PostgreSQL (via Docker Compose)
 
 ## Execução
 
-Configure a connection string `SqlServerConnection` no `appsettings.json` da aplicação que será executada e use:
+Suba o banco (PostgreSQL na porta **5433** do host, para nao conflitar com uma instalacao local na 5432):
+
+```bash
+docker compose up -d
+```
+
+A connection string `DefaultConnection` do `appsettings.json` ja aponta para ele. Depois:
 
 ```bash
 dotnet build ADOLab.sln
@@ -44,4 +50,10 @@ Para executar a aplicação web:
 
 ```bash
 dotnet run --project ADOLab.Web/ADOLab.Web.csproj
+```
+
+Verificacao rapida do CRUD contra o banco:
+
+```bash
+dotnet run --project ADOLab.Console/ADOLab.Console.csproj -- smoke
 ```
