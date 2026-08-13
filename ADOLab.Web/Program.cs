@@ -1,7 +1,7 @@
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("SqlServerConnection")
-    ?? throw new InvalidOperationException("ConnectionStrings:SqlServerConnection não encontrada.");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection não encontrada.");
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<AlunoRepository>(_ => new AlunoRepository(connectionString));
