@@ -52,7 +52,20 @@ public class AlunoRepository : IRepository<Aluno>
     /// <returns>O ID do Aluno rec�m-inserido.</returns>
     public int Inserir(string nome, int idade, string email, DateTime dataNascimento)
     {
-        throw new NotImplementedException();
+        const string sql = @"
+        INSERT INTO dbo.Alunos (Nome, Idade, Email, DataNascimento)
+        OUTPUT INSERTED.Id
+        VALUES (@Nome, @Idade, @Email, @DataNascimento);";
+
+        using var conn = new SqlConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Nome", nome);
+        cmd.Parameters.AddWithValue("@Idade", idade);
+        cmd.Parameters.AddWithValue("@Email", email);
+        cmd.Parameters.AddWithValue("@DataNascimento", dataNascimento);
+
+        return (int)cmd.ExecuteScalar();
     }
 
     /// <summary>
@@ -61,7 +74,18 @@ public class AlunoRepository : IRepository<Aluno>
     /// <returns>Uma lista de entidades Aluno.</returns>
     public List<Aluno> Listar()
     {
-        throw new NotImplementedException();
+        const string sql = "SELECT Id, Nome, Idade, Email, DataNascimento FROM dbo.Alunos ORDER BY Id;";
+
+        var alunos = new List<Aluno>();
+
+        using var conn = new SqlConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqlCommand(sql, conn);
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+            alunos.Add(LerAluno(reader));
+
+        return alunos;
     }
 
     /// <summary>
@@ -75,7 +99,21 @@ public class AlunoRepository : IRepository<Aluno>
     /// <returns>O n�mero de linhas afetadas.</returns>
     public int Atualizar(int id, string nome, int idade, string email, DateTime dataNascimento)
     {
-        throw new NotImplementedException();
+        const string sql = @"
+        UPDATE dbo.Alunos
+        SET Nome = @Nome, Idade = @Idade, Email = @Email, DataNascimento = @DataNascimento
+        WHERE Id = @Id;";
+
+        using var conn = new SqlConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Id", id);
+        cmd.Parameters.AddWithValue("@Nome", nome);
+        cmd.Parameters.AddWithValue("@Idade", idade);
+        cmd.Parameters.AddWithValue("@Email", email);
+        cmd.Parameters.AddWithValue("@DataNascimento", dataNascimento);
+
+        return cmd.ExecuteNonQuery();
     }
 
     /// <summary>
@@ -85,7 +123,14 @@ public class AlunoRepository : IRepository<Aluno>
     /// <returns>O n�mero de linhas afetadas.</returns>
     public int Excluir(int id)
     {
-        throw new NotImplementedException();
+        const string sql = "DELETE FROM dbo.Alunos WHERE Id = @Id;";
+
+        using var conn = new SqlConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Id", id);
+
+        return cmd.ExecuteNonQuery();
     }
 
     /// <summary>
@@ -96,6 +141,54 @@ public class AlunoRepository : IRepository<Aluno>
     /// <returns>Uma lista de entidades Aluno correspondentes.</returns>
     public List<Aluno> Buscar(string propriedade, object valor)
     {
-        throw new NotImplementedException();
+        var colunasPermitidas = new Dictionary<string, SqlDbType>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Id"] = SqlDbType.Int,
+            ["Nome"] = SqlDbType.NVarChar,
+            ["Idade"] = SqlDbType.Int,
+            ["Email"] = SqlDbType.NVarChar,
+            ["DataNascimento"] = SqlDbType.Date,
+        };
+
+        if (propriedade is null || !colunasPermitidas.TryGetValue(propriedade, out var tipoColuna))
+            throw new ArgumentException($"Propriedade '{propriedade}' inválida para busca.", nameof(propriedade));
+
+        string sql = $"SELECT Id, Nome, Idade, Email, DataNascimento FROM dbo.Alunos WHERE {propriedade} = @Valor;";
+
+        var alunos = new List<Aluno>();
+
+        using var conn = new SqlConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqlCommand(sql, conn);
+        cmd.Parameters.Add("@Valor", tipoColuna).Value = ConverterValor(tipoColuna, valor);
+
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+            alunos.Add(LerAluno(reader));
+
+        return alunos;
+    }
+
+    private static object ConverterValor(SqlDbType tipoColuna, object valor)
+    {
+        if (valor is null)
+            return DBNull.Value;
+
+        return tipoColuna switch
+        {
+            SqlDbType.Int => Convert.ToInt32(valor),
+            SqlDbType.Date => Convert.ToDateTime(valor),
+            _ => valor,
+        };
+    }
+
+    private static Aluno LerAluno(SqlDataReader reader)
+    {
+        return new Aluno(
+            reader.GetInt32(reader.GetOrdinal("Id")),
+            reader.GetString(reader.GetOrdinal("Nome")),
+            reader.GetInt32(reader.GetOrdinal("Idade")),
+            reader.GetString(reader.GetOrdinal("Email")),
+            reader.GetDateTime(reader.GetOrdinal("DataNascimento")));
     }
 }
