@@ -1,4 +1,5 @@
 using System.Data;
+using System.Globalization;
 using Microsoft.Data.SqlClient;
 
 /// <summary>
@@ -52,7 +53,16 @@ public class AlunoRepository : IRepository<Aluno>
     /// <returns>O ID do Aluno rec�m-inserido.</returns>
     public int Inserir(string nome, int idade, string email, DateTime dataNascimento)
     {
-        throw new NotImplementedException();
+        const string sql = @"
+            INSERT INTO dbo.Alunos (Nome, Idade, Email, DataNascimento)
+            OUTPUT INSERTED.Id
+            VALUES (@nome, @idade, @email, @dataNascimento);";
+
+        using var conn = new SqlConnection(ConnectionString);
+        using var cmd = new SqlCommand(sql, conn);
+        AdicionarParametrosAluno(cmd, nome, idade, email, dataNascimento);
+        conn.Open();
+        return (int)cmd.ExecuteScalar()!;
     }
 
     /// <summary>
@@ -61,7 +71,13 @@ public class AlunoRepository : IRepository<Aluno>
     /// <returns>Uma lista de entidades Aluno.</returns>
     public List<Aluno> Listar()
     {
-        throw new NotImplementedException();
+        const string sql = "SELECT Id, Nome, Idade, Email, DataNascimento FROM dbo.Alunos ORDER BY Id;";
+
+        using var conn = new SqlConnection(ConnectionString);
+        using var cmd = new SqlCommand(sql, conn);
+        conn.Open();
+        using var reader = cmd.ExecuteReader();
+        return LerAlunos(reader);
     }
 
     /// <summary>
@@ -75,7 +91,17 @@ public class AlunoRepository : IRepository<Aluno>
     /// <returns>O n�mero de linhas afetadas.</returns>
     public int Atualizar(int id, string nome, int idade, string email, DateTime dataNascimento)
     {
-        throw new NotImplementedException();
+        const string sql = @"
+            UPDATE dbo.Alunos
+            SET Nome = @nome, Idade = @idade, Email = @email, DataNascimento = @dataNascimento
+            WHERE Id = @id;";
+
+        using var conn = new SqlConnection(ConnectionString);
+        using var cmd = new SqlCommand(sql, conn);
+        cmd.Parameters.Add("@id", SqlDbType.Int).Value = id;
+        AdicionarParametrosAluno(cmd, nome, idade, email, dataNascimento);
+        conn.Open();
+        return cmd.ExecuteNonQuery();
     }
 
     /// <summary>
@@ -85,7 +111,13 @@ public class AlunoRepository : IRepository<Aluno>
     /// <returns>O n�mero de linhas afetadas.</returns>
     public int Excluir(int id)
     {
-        throw new NotImplementedException();
+        const string sql = "DELETE FROM dbo.Alunos WHERE Id = @id;";
+
+        using var conn = new SqlConnection(ConnectionString);
+        using var cmd = new SqlCommand(sql, conn);
+        cmd.Parameters.Add("@id", SqlDbType.Int).Value = id;
+        conn.Open();
+        return cmd.ExecuteNonQuery();
     }
 
     /// <summary>
@@ -96,6 +128,52 @@ public class AlunoRepository : IRepository<Aluno>
     /// <returns>Uma lista de entidades Aluno correspondentes.</returns>
     public List<Aluno> Buscar(string propriedade, object valor)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(propriedade);
+        ArgumentNullException.ThrowIfNull(valor);
+
+        // Identificadores SQL não podem ser parametrizados: aceite somente colunas conhecidas.
+        (string coluna, SqlDbType tipo, int tamanho, object valorConvertido) = propriedade.Trim().ToLowerInvariant() switch
+        {
+            "id" => ("Id", SqlDbType.Int, 0, (object)Convert.ToInt32(valor, CultureInfo.InvariantCulture)),
+            "nome" => ("Nome", SqlDbType.NVarChar, 100, Convert.ToString(valor, CultureInfo.InvariantCulture)!),
+            "idade" => ("Idade", SqlDbType.Int, 0, Convert.ToInt32(valor, CultureInfo.InvariantCulture)),
+            "email" => ("Email", SqlDbType.NVarChar, 100, Convert.ToString(valor, CultureInfo.InvariantCulture)!),
+            "datanascimento" => ("DataNascimento", SqlDbType.Date, 0, Convert.ToDateTime(valor, CultureInfo.InvariantCulture)),
+            _ => throw new ArgumentException("Propriedade inválida. Use Id, Nome, Idade, Email ou DataNascimento.", nameof(propriedade))
+        };
+
+        var sql = $"SELECT Id, Nome, Idade, Email, DataNascimento FROM dbo.Alunos WHERE {coluna} = @valor ORDER BY Id;";
+        using var conn = new SqlConnection(ConnectionString);
+        using var cmd = new SqlCommand(sql, conn);
+        var parametro = tamanho > 0
+            ? cmd.Parameters.Add("@valor", tipo, tamanho)
+            : cmd.Parameters.Add("@valor", tipo);
+        parametro.Value = valorConvertido;
+        conn.Open();
+        using var reader = cmd.ExecuteReader();
+        return LerAlunos(reader);
+    }
+
+    private static void AdicionarParametrosAluno(SqlCommand cmd, string nome, int idade, string email, DateTime dataNascimento)
+    {
+        cmd.Parameters.Add("@nome", SqlDbType.NVarChar, 100).Value = nome;
+        cmd.Parameters.Add("@idade", SqlDbType.Int).Value = idade;
+        cmd.Parameters.Add("@email", SqlDbType.NVarChar, 100).Value = email;
+        cmd.Parameters.Add("@dataNascimento", SqlDbType.Date).Value = dataNascimento;
+    }
+
+    private static List<Aluno> LerAlunos(SqlDataReader reader)
+    {
+        var alunos = new List<Aluno>();
+        while (reader.Read())
+        {
+            alunos.Add(new Aluno(
+                reader.GetInt32(0),
+                reader.GetString(1),
+                reader.GetInt32(2),
+                reader.GetString(3),
+                reader.GetDateTime(4)));
+        }
+        return alunos;
     }
 }
